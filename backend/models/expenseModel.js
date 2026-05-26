@@ -28,7 +28,7 @@ const expenseSchema = new mongoose.Schema(
     },
   },
   {
-    timestamps: true,
+    timestamps: true, //created at and updated at what time
   },
 );
 const expenseModel =
