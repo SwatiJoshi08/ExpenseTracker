@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
+import { getAuthHeader, API_URL } from "../../auth.js";
 import {
   Plus,
   DollarSign,
@@ -31,23 +32,18 @@ import { getTimeFrameRange, generateChartPoints } from "../components/Helpers";
 import { INCOME_COLORS, CATEGORY_ICONS_Inc } from "../assets/color";
 import { incomeStyles as styles } from "../assets/dummyStyles";
 
-const API_BASE = "http://localhost:4000/api";
+// ✅ Removed API_BASE - now using API_URL from authHeader util
 
 function toIsoWithClientTime(dateValue) {
-  if (!dateValue) {
-    return new Date().toISOString();
-  }
-
+  if (!dateValue) return new Date().toISOString();
   if (typeof dateValue === "string" && dateValue.length === 10) {
     const now = new Date();
     const hhmmss = now.toTimeString().slice(0, 8);
-    const combined = new Date(`${dateValue}T${hhmmss}`);
-    return combined.toISOString();
+    return new Date(`${dateValue}T${hhmmss}`).toISOString();
   }
-
   try {
     return new Date(dateValue).toISOString();
-  } catch (err) {
+  } catch {
     return new Date().toISOString();
   }
 }
@@ -69,7 +65,6 @@ const IncomeChart = ({ chartData, timeFrame, timeFrameRange }) => (
         </span>
       </h3>
     </div>
-
     <div className={styles.chartHeight}>
       <ResponsiveContainer width="100%" height="100%">
         <BarChart
@@ -120,7 +115,6 @@ const IncomeChart = ({ chartData, timeFrame, timeFrameRange }) => (
               />
             ))}
           </Bar>
-
           {chartData.map(
             (point, index) =>
               point.isCurrent && (
@@ -158,7 +152,6 @@ const FilterSection = ({ filter, setFilter, handleExport }) => (
       </select>
       <Filter className={styles.filterIcon} />
     </div>
-
     <button onClick={handleExport} className={styles.exportButton}>
       <Download size={16} className="md:size-4" /> Export
     </button>
@@ -199,11 +192,6 @@ const Income = () => {
     date: new Date().toISOString().split("T")[0],
   });
 
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
   const timeFrameRange = useMemo(
     () => getTimeFrameRange(timeFrame, null),
     [timeFrame],
@@ -217,11 +205,9 @@ const Income = () => {
     const transactionDate = new Date(date);
     const startDate = new Date(start);
     const endDate = new Date(end);
-
     transactionDate.setHours(0, 0, 0, 0);
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-
     return transactionDate >= startDate && transactionDate <= endDate;
   }, []);
 
@@ -243,7 +229,6 @@ const Income = () => {
 
   const filteredTransactions = useMemo(() => {
     if (filter === "all") return timeFrameTransactions;
-
     return timeFrameTransactions.filter((t) => {
       if (filter === "month" || filter === "year") {
         const transDate = new Date(t.date);
@@ -263,7 +248,6 @@ const Income = () => {
 
   const chartData = useMemo(() => {
     const data = chartPoints.map((point) => ({ ...point, income: 0 }));
-
     filteredTransactions.forEach((transaction) => {
       const transDate = new Date(transaction.date);
       const point = data.find((d) =>
@@ -276,20 +260,21 @@ const Income = () => {
       );
       point && (point.income += Math.round(Number(transaction.amount)));
     });
-
     return data;
   }, [filteredTransactions, chartPoints, timeFrame]);
 
+  // ✅ fetchOverview - uses getAuthHeader() from util, API_URL from util
   const fetchOverview = useCallback(
     async (range = timeFrame ?? "monthly") => {
       try {
-        const res = await axios.get(`${API_BASE}/income/overview`, {
-          headers: getAuthHeaders(),
+        const headers = getAuthHeader();
+        const res = await axios.get(`${API_URL}/income/overview`, {
+          headers,
           params: { range },
         });
-
-        if (res.data?.success) {
-          const payload = res.data.data ?? {};
+        const data = res.data || {};
+        if (data.success) {
+          const payload = data.data ?? {};
           setOverview({
             totalIncome: payload.totalIncome ?? 0,
             averageIncome: payload.averageIncome ?? 0,
@@ -302,7 +287,7 @@ const Income = () => {
         console.error("Failed to fetch overview:", err);
       }
     },
-    [timeFrame, getAuthHeaders],
+    [timeFrame],
   );
 
   useEffect(() => {
@@ -339,25 +324,23 @@ const Income = () => {
     [overview.numberOfTransactions, filteredTransactions],
   );
 
+  // ✅ handleAddTransaction - uses getAuthHeader() from util, API_URL from util
   const handleAddTransaction = useCallback(async () => {
     if (!newTransaction.description || !newTransaction.amount) return;
-
     try {
       setLoading(true);
-
+      const headers = getAuthHeader();
       const payload = {
         description: newTransaction.description.trim(),
         amount: parseFloat(newTransaction.amount),
         category: newTransaction.category,
         date: toIsoWithClientTime(newTransaction.date),
       };
-
-      await axios.post(`${API_BASE}/income/add`, payload, {
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      await axios.post(`${API_URL}/income/add`, payload, {
+        headers: { "Content-Type": "application/json", ...headers },
       });
       await refreshTransactions();
       await fetchOverview(timeFrame ?? "monthly");
-
       setNewTransaction({
         date: new Date().toISOString().split("T")[0],
         description: "",
@@ -368,88 +351,74 @@ const Income = () => {
       setShowModal(false);
     } catch (err) {
       console.error("Add income error:", err);
-      const serverMsg = err?.response?.data?.message;
-      alert(serverMsg || "Server error while adding income.");
+      alert(
+        err?.response?.data?.message || "Server error while adding income.",
+      );
     } finally {
       setLoading(false);
     }
-  }, [
-    newTransaction,
-    getAuthHeaders,
-    refreshTransactions,
-    fetchOverview,
-    timeFrame,
-  ]);
+  }, [newTransaction, refreshTransactions, fetchOverview, timeFrame]);
 
+  // ✅ handleEditTransaction - uses getAuthHeader() from util, API_URL from util
   const handleEditTransaction = useCallback(async () => {
     if (!editingId || !editForm.description || !editForm.amount) return;
-
     try {
       setLoading(true);
-
+      const headers = getAuthHeader();
       const payload = {
         description: editForm.description.trim(),
         amount: parseFloat(editForm.amount),
         category: editForm.category,
         date: toIsoWithClientTime(editForm.date),
       };
-
-      await axios.put(`${API_BASE}/income/update/${editingId}`, payload, {
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+      await axios.put(`${API_URL}/income/update/${editingId}`, payload, {
+        headers: { "Content-Type": "application/json", ...headers },
       });
-
       await refreshTransactions();
       await fetchOverview(timeFrame ?? "monthly");
-
       setEditingId(null);
     } catch (err) {
       console.error("Update income error:", err);
-      const serverMsg = err?.response?.data?.message;
-      alert(serverMsg || "Server error while updating income.");
+      alert(
+        err?.response?.data?.message || "Server error while updating income.",
+      );
     } finally {
       setLoading(false);
     }
-  }, [
-    editingId,
-    editForm,
-    getAuthHeaders,
-    refreshTransactions,
-    fetchOverview,
-    timeFrame,
-  ]);
+  }, [editingId, editForm, refreshTransactions, fetchOverview, timeFrame]);
 
+  // ✅ handleDeleteTransaction - uses getAuthHeader() from util, API_URL from util
   const handleDeleteTransaction = useCallback(
     async (id) => {
       if (!id) return;
       if (!window.confirm("Are you sure you want to delete this income?"))
         return;
-
       try {
         setLoading(true);
-        await axios.delete(`${API_BASE}/income/delete/${id}`, {
-          headers: getAuthHeaders(),
-        });
-
+        const headers = getAuthHeader();
+        await axios.delete(`${API_URL}/income/delete/${id}`, { headers });
         await refreshTransactions();
         await fetchOverview(timeFrame ?? "monthly");
       } catch (err) {
         console.error("Delete income error:", err);
-        const serverMsg = err?.response?.data?.message;
-        alert(serverMsg || "Server error while deleting income.");
+        alert(
+          err?.response?.data?.message || "Server error while deleting income.",
+        );
       } finally {
         setLoading(false);
       }
     },
-    [getAuthHeaders, refreshTransactions, fetchOverview, timeFrame],
+    [refreshTransactions, fetchOverview, timeFrame],
   );
 
+  // ✅ handleExport - uses getAuthHeader() from util, API_URL from util
   const handleExport = useCallback(async () => {
     try {
-      const res = await axios.get(`${API_BASE}/income/downloadexcel`, {
-        headers: getAuthHeaders(),
+      const headers = getAuthHeader();
+      const res = await axios.get(`${API_URL}/income/downloadexcel`, {
+        headers,
         responseType: "blob",
       });
-
       const blob = new Blob([res.data], {
         type: res.headers["content-type"] || "application/octet-stream",
       });
@@ -484,7 +453,7 @@ const Income = () => {
         alert("Failed to export data.");
       }
     }
-  }, [getAuthHeaders, filteredTransactions]);
+  }, [filteredTransactions]);
 
   return (
     <div className={styles.wrapper}>
@@ -505,7 +474,6 @@ const Income = () => {
             {loading ? "Processing..." : "Add Income"}
           </button>
         </div>
-
         <div className={styles.timeFrameContainer}>
           <TimeFrameSelector
             timeFrame={timeFrame}
@@ -533,7 +501,6 @@ const Income = () => {
             </div>
           }
         />
-
         <FinancialCard
           icon={
             <div className={styles.iconBlue}>
@@ -551,7 +518,6 @@ const Income = () => {
             </div>
           }
         />
-
         <FinancialCard
           icon={
             <div className={styles.iconPurple}>
@@ -587,7 +553,6 @@ const Income = () => {
               ({timeFrameRange.label})
             </span>
           </h3>
-
           <FilterSection
             filter={filter}
             setFilter={setFilter}
@@ -600,9 +565,9 @@ const Income = () => {
             .slice(0, showAll ? filteredTransactions.length : 8)
             .map((transaction) => (
               <TransactionItem
-                key={transaction.id}
+                key={transaction._id || transaction.id}
                 transaction={transaction}
-                isEditing={editingId === transaction.id}
+                isEditing={editingId === (transaction._id || transaction.id)}
                 editForm={editForm}
                 setEditForm={setEditForm}
                 onSave={handleEditTransaction}

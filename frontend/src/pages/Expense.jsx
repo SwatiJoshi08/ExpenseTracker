@@ -1,5 +1,6 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import { useOutletContext } from "react-router-dom";
+import { getAuthHeader, API_URL } from "../../auth.js";
 import {
   Plus,
   DollarSign,
@@ -30,37 +31,23 @@ import { getTimeFrameRange, generateChartPoints } from "../components/Helpers";
 import { CATEGORY_ICONS } from "../assets/color";
 import { expensePageStyles as styles } from "../assets/dummyStyles";
 
-const API_BASE = "http://localhost:4000/api";
+// ✅ Removed API_BASE - now using API_URL from authHeader util
 
-/**
- * Helper: convert date (or datetime) to ISO by attaching client current time
- * - If `dateValue` is "YYYY-MM-DD" (length 10) => attach current HH:MM:SS
- * - Otherwise attempt to parse and return ISO
- * - Fallback to now if parsing fails
- */
 function toIsoWithClientTime(dateValue) {
-  if (!dateValue) {
-    return new Date().toISOString();
-  }
-
-  // Plain date YYYY-MM-DD
+  if (!dateValue) return new Date().toISOString();
   if (typeof dateValue === "string" && dateValue.length === 10) {
     const now = new Date();
-    const hhmmss = now.toTimeString().slice(0, 8); // "HH:MM:SS"
-    const combined = new Date(`${dateValue}T${hhmmss}`);
-    return combined.toISOString();
+    const hhmmss = now.toTimeString().slice(0, 8);
+    return new Date(`${dateValue}T${hhmmss}`).toISOString();
   }
-
-  // Already a datetime or ISO-like string
   try {
     return new Date(dateValue).toISOString();
-  } catch (err) {
+  } catch {
     return new Date().toISOString();
   }
 }
 
 const ExpensePage = () => {
-  // Get data from outlet context including refreshTransactions
   const {
     transactions: outletTransactions = [],
     timeFrame = "monthly",
@@ -74,6 +61,16 @@ const ExpensePage = () => {
   const [filter, setFilter] = useState("all");
   const [selectedMonth, setSelectedMonth] = useState(null);
   const [loading, setLoading] = useState(false);
+
+  // ✅ Fixed: was [setOverview] — missing state variable
+  const [overview, setOverview] = useState({
+    totalExpense: 0,
+    averageExpense: 0,
+    numberOfTransactions: 0,
+    recentTransactions: [],
+    range: "monthly",
+  });
+
   const [editForm, setEditForm] = useState({
     description: "",
     amount: "",
@@ -87,55 +84,43 @@ const ExpensePage = () => {
     type: "expense",
     category: "Food",
   });
-  const [setOverview] = useState({
-    totalExpense: 0,
-    averageExpense: 0,
-    numberOfTransactions: 0,
-    recentTransactions: [],
-    range: "monthly",
-  });
 
-  // Auth headers helper
-  const getAuthHeaders = useCallback(() => {
-    const token = localStorage.getItem("token");
-    return token ? { Authorization: `Bearer ${token}` } : {};
-  }, []);
-
-  // Fetch overview (GET /expense/overview?range=...)
+  // ✅ Fixed: uses getAuthHeader() from util, API_URL from util, removed broken syntax
   const fetchOverview = useCallback(
     async (range = timeFrame ?? "monthly") => {
       try {
-        const res = await axios.get(`${API_BASE}/expense/overview`, {
-          headers: getAuthHeaders(),
+        const headers = getAuthHeader();
+        const res = await axios.get(`${API_URL}/expense/overview`, {
+          headers,
           params: { range },
         });
-        const payload = res.data?.data ?? {};
-        setOverview({
-          totalExpense: payload.totalExpense ?? 0,
-          averageExpense: payload.averageExpense ?? 0,
-          numberOfTransactions: payload.numberOfTransactions ?? 0,
-          recentTransactions: payload.recentTransactions ?? [],
-          range: payload.range ?? range,
-        });
+        const data = res.data || {};
+        if (data.success) {
+          const payload = data.data ?? {};
+          setOverview({
+            totalExpense: payload.totalExpense ?? 0,
+            averageExpense: payload.averageExpense ?? 0,
+            numberOfTransactions: payload.numberOfTransactions ?? 0,
+            recentTransactions: payload.recentTransactions ?? [],
+            range: payload.range ?? range,
+          });
+        }
       } catch (err) {
         console.error("Failed to fetch expense overview:", err);
       }
     },
-    [timeFrame, getAuthHeaders],
+    [timeFrame], // ✅ Removed getAuthHeaders from deps
   );
 
-  // Initial load
   useEffect(() => {
     fetchOverview(timeFrame);
   }, [fetchOverview, timeFrame]);
 
-  // Re-fetch overview when timeframe changes
   useEffect(() => {
     if (filter === "month" && !timeFrame) setTimeFrame("monthly");
     fetchOverview(timeFrame);
   }, [timeFrame, selectedMonth, filter, setTimeFrame, fetchOverview]);
 
-  // Time frame range and chart points
   const timeFrameRange = useMemo(
     () => getTimeFrameRange(timeFrame, selectedMonth),
     [timeFrame, selectedMonth],
@@ -145,20 +130,16 @@ const ExpensePage = () => {
     [timeFrame, timeFrameRange],
   );
 
-  // Function to check if a date is within a range
   const isDateInRange = useCallback((date, start, end) => {
     const transactionDate = new Date(date);
     const startDate = new Date(start);
     const endDate = new Date(end);
-
     transactionDate.setHours(0, 0, 0, 0);
     startDate.setHours(0, 0, 0, 0);
     endDate.setHours(23, 59, 59, 999);
-
     return transactionDate >= startDate && transactionDate <= endDate;
   }, []);
 
-  // Filter expense transactions from outlet transactions
   const expenseTransactions = useMemo(
     () =>
       (outletTransactions || [])
@@ -167,7 +148,6 @@ const ExpensePage = () => {
     [outletTransactions],
   );
 
-  // Filter transactions by time frame
   const timeFrameTransactions = useMemo(
     () =>
       expenseTransactions.filter((t) =>
@@ -176,7 +156,6 @@ const ExpensePage = () => {
     [expenseTransactions, timeFrameRange, isDateInRange],
   );
 
-  // Filter logic — month/year use current calendar by default
   const filteredTransactions = useMemo(() => {
     if (filter === "all") return timeFrameTransactions;
 
@@ -196,7 +175,6 @@ const ExpensePage = () => {
 
     return timeFrameTransactions.filter((t) => {
       const transDate = new Date(t.date);
-
       if (filter === "month") {
         const compareYear =
           yearFromSelectedMonth ?? yearFromTimeFrame ?? now.getFullYear();
@@ -207,18 +185,15 @@ const ExpensePage = () => {
           transDate.getMonth() === compareMonth
         );
       }
-
       if (filter === "year") {
         const compareYear =
           yearFromSelectedMonth ?? yearFromTimeFrame ?? now.getFullYear();
         return transDate.getFullYear() === compareYear;
       }
-
       return t.category.toLowerCase() === filter.toLowerCase();
     });
   }, [timeFrameTransactions, filter, selectedMonth, timeFrameRange]);
 
-  // Calculate totals
   const totalExpense = useMemo(
     () =>
       filteredTransactions.reduce(
@@ -236,10 +211,8 @@ const ExpensePage = () => {
     [filteredTransactions, totalExpense],
   );
 
-  // Prepare chart data
   const chartData = useMemo(() => {
     const data = chartPoints.map((point) => ({ ...point, expense: 0 }));
-
     filteredTransactions.forEach((transaction) => {
       const transDate = new Date(transaction.date);
       const point = data.find((d) =>
@@ -252,26 +225,23 @@ const ExpensePage = () => {
       );
       point && (point.expense += Math.round(Number(transaction.amount)));
     });
-
     return data;
   }, [filteredTransactions, chartPoints, timeFrame]);
 
-  // API request handler
+  // ✅ Fixed: uses getAuthHeader() and API_URL from util
   const handleApiRequest = async (method, url, data = null) => {
     try {
       setLoading(true);
+      const headers = getAuthHeader();
       const config = {
         method,
-        url: `${API_BASE}${url}`,
-        headers: { "Content-Type": "application/json", ...getAuthHeaders() },
+        url: `${API_URL}${url}`,
+        headers: { "Content-Type": "application/json", ...headers },
       };
-
       if (data) config.data = data;
-
       const response = await axios(config);
       await refreshTransactions();
       await fetchOverview(timeFrame);
-
       return response;
     } catch (err) {
       console.error(`${method} request error:`, err);
@@ -286,33 +256,25 @@ const ExpensePage = () => {
     }
   };
 
-  // Add expense -> POST /expense/add
   const handleAddTransaction = async () => {
     if (!newTransaction.description || !newTransaction.amount) return;
-
     try {
-      // Convert date-only to ISO with client time before sending
       const payload = {
         description: newTransaction.description.trim(),
         amount: parseFloat(newTransaction.amount),
         category: newTransaction.category,
         date: toIsoWithClientTime(newTransaction.date),
       };
-
       await handleApiRequest("post", "/expense/add", payload);
-
-      // If added date is outside the current visible range, switch view to that month
       const addedDate = new Date(payload.date || newTransaction.date);
       const addedDateInRange =
         addedDate >= timeFrameRange.start && addedDate <= timeFrameRange.end;
-
       if (!addedDateInRange) {
         setTimeFrame("monthly");
         setSelectedMonth(
           new Date(addedDate.getFullYear(), addedDate.getMonth(), 1),
         );
       }
-
       setNewTransaction({
         date: new Date().toISOString().split("T")[0],
         description: "",
@@ -321,15 +283,13 @@ const ExpensePage = () => {
         category: "Food",
       });
       setShowModal(false);
-    } catch (err) {
+    } catch {
       // Error handled in handleApiRequest
     }
   };
 
-  // Edit expense -> PUT /expense/update/:id
   const handleEditTransaction = async () => {
     if (!editingId || !editForm.description || !editForm.amount) return;
-
     try {
       const payload = {
         description: editForm.description.trim(),
@@ -337,40 +297,36 @@ const ExpensePage = () => {
         category: editForm.category,
         date: toIsoWithClientTime(editForm.date),
       };
-
       await handleApiRequest("put", `/expense/update/${editingId}`, payload);
       setEditingId(null);
-    } catch (err) {
+    } catch {
       // Error handled in handleApiRequest
     }
   };
 
-  // Delete expense -> DELETE /expense/delete/:id
   const handleDeleteTransaction = async (id) => {
     if (!id || !window.confirm("Are you sure you want to delete this expense?"))
       return;
     await handleApiRequest("delete", `/expense/delete/${id}`);
   };
 
-  // Export -> GET /expense/downloadexcel (server) with client fallback
+  // ✅ Fixed: uses getAuthHeader() and API_URL from util
   const handleExport = async () => {
     try {
-      const res = await axios.get(`${API_BASE}/expense/downloadexcel`, {
-        headers: getAuthHeaders(),
+      const headers = getAuthHeader();
+      const res = await axios.get(`${API_URL}/expense/downloadexcel`, {
+        headers,
         responseType: "blob",
       });
-
       const blob = new Blob([res.data], {
         type: res.headers["content-type"] || "application/octet-stream",
       });
       const disposition = res.headers["content-disposition"];
       let filename = "expense_details.xlsx";
-
       if (disposition) {
         const match = disposition.match(/filename="?(.+)"?/);
         if (match && match[1]) filename = match[1];
       }
-
       const link = document.createElement("a");
       link.href = window.URL.createObjectURL(blob);
       link.download = filename;
@@ -379,7 +335,6 @@ const ExpensePage = () => {
       link.remove();
     } catch (err) {
       console.error("Export error:", err);
-      // Fallback client export
       try {
         const exportData = filteredTransactions.map((t) => ({
           Date: new Date(t.date).toLocaleDateString(),
@@ -417,7 +372,6 @@ const ExpensePage = () => {
             <Plus size={20} /> {loading ? "Processing..." : "Add Expense"}
           </button>
         </div>
-
         <div className={styles.timeframePositioning}>
           <TimeFrameSelector
             timeFrame={timeFrame}
@@ -447,7 +401,6 @@ const ExpensePage = () => {
           }
           borderColor={styles.borderOrange}
         />
-
         <FinancialCard
           icon={
             <div className={styles.iconAmber}>
@@ -464,7 +417,6 @@ const ExpensePage = () => {
           }
           borderColor={styles.borderAmber}
         />
-
         <FinancialCard
           icon={
             <div className={styles.iconYellow}>
@@ -475,7 +427,7 @@ const ExpensePage = () => {
           value={filteredTransactions.length}
           additionalContent={
             <div className="mt-2 text-xs text-gray-500 flex items-center">
-              <Calendar className="w-3 h-3 mr-1" />{" "}
+              <Calendar className="w-3 h-3 mr-1" />
               {filter === "all" ? "All records" : "Filtered records"}
             </div>
           }
@@ -498,12 +450,10 @@ const ExpensePage = () => {
               ({timeFrameRange.label})
             </span>
           </h3>
-
           <button onClick={handleExport} className={styles.chartExportButton}>
             <Download size={18} /> Export Data
           </button>
         </div>
-
         <div className={styles.chartHeight}>
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart
@@ -582,7 +532,6 @@ const ExpensePage = () => {
               ({timeFrameRange.label})
             </span>
           </h3>
-
           <div className="flex flex-col sm:flex-row gap-2 md:gap-3 w-full sm:w-auto">
             <div className="relative w-full sm:w-auto">
               <select
@@ -603,7 +552,6 @@ const ExpensePage = () => {
                 <option value="Other">Other</option>
               </select>
             </div>
-
             <button onClick={handleExport} className={styles.exportButton}>
               <Download size={18} /> Export
             </button>
@@ -615,9 +563,9 @@ const ExpensePage = () => {
             .slice(0, showAll ? filteredTransactions.length : 8)
             .map((transaction) => (
               <TransactionItem
-                key={transaction.id}
+                key={transaction._id || transaction.id}
                 transaction={transaction}
-                isEditing={editingId === transaction.id}
+                isEditing={editingId === (transaction._id || transaction.id)}
                 editForm={editForm}
                 setEditForm={setEditForm}
                 onSave={handleEditTransaction}
