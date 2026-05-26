@@ -3,6 +3,7 @@ import { loginStyles } from "../assets/dummyStyles";
 import { Mail, User, Lock, EyeOff, Eye } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
+import { getAuthHeader } from "../../auth";
 
 const Login = ({ onLogin, API_URL = "http://localhost:4000" }) => {
   const [email, setEmail] = useState("");
@@ -38,10 +39,11 @@ const Login = ({ onLogin, API_URL = "http://localhost:4000" }) => {
     setError("");
 
     try {
+      const headers = getAuthHeader();
       const res = await axios.post(
         `${API_URL}/api/user/login`,
         { email, password },
-        { headers: { "Content-Type": "application/json" } },
+        { headers },
       );
       const data = res.data || {};
       const token = data.token || null;
@@ -184,7 +186,6 @@ const Login = ({ onLogin, API_URL = "http://localhost:4000" }) => {
                 checked={rememberMe}
                 onChange={(e) => setRememberMe(e.target.checked)}
                 className={loginStyles.checkbox}
-                required
               />
               <label htmlFor="remember" className={loginStyles.checkboxLabel}>
                 Remember Me

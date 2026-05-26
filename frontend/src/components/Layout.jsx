@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import axios from "axios";
 import { Outlet } from "react-router-dom";
+import { getAuthHeader } from "../../auth.js";
 
 const API_BASE = "http://localhost:4000/api";
 const CATEGORY_ICONS = {
@@ -85,7 +86,8 @@ const Layout = ({ onLogout, user }) => {
     try {
       setLoading(true);
       const token = localStorage.getItem("token");
-      const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      // const headers = token ? { Authorization: `Bearer ${token}` } : {};
+      const headers = getAuthHeader();
 
       const [incomeRes, expenseRes] = await Promise.all([
         axios.get(`${API_BASE}/income/get`, { headers }),
@@ -426,7 +428,7 @@ const Layout = ({ onLogout, user }) => {
                   </span>
                 </h3>
               </div>
-              {/* <Outlet context={outletContext} id="outlet" /> */}
+              <Outlet context={outletContext} id="outlet" />
             </div>
           </div>
 
