@@ -79,11 +79,11 @@ const Dashboard = () => {
   } = useOutletContext();
 
   const [showModal, setShowModal] = useState(false);
-  // const [gaugeData, setGaugeData] = useState([
-  //   { name: "Income", value: 0, max: 5000 },
-  //   { name: "Spent", value: 0, max: 3000 },
-  //   { name: "Savings", value: 0, max: 2000 },
-  // ]);
+  const [gaugeData, setGaugeData] = useState([
+    { name: "Income", value: 0, max: 5000 },
+    { name: "Spent", value: 0, max: 3000 },
+    { name: "Savings", value: 0, max: 2000 },
+  ]);
   const [loading, setLoading] = useState(false);
   const [overviewMeta, setOverviewMeta] = useState({});
   const [showAllIncome, setShowAllIncome] = useState(false);
@@ -145,36 +145,36 @@ const Dashboard = () => {
     return data;
   }, [prevFilteredTransactions]);
 
-  // useEffect(() => {
-  //   if (timeFrame !== "monthly" || !overviewMeta.monthlyIncome) {
-  //     const maxValues = {
-  //       income: Math.max(currentTimeFrameData.income, 5000),
-  //       expenses: Math.max(currentTimeFrameData.expenses, 3000),
-  //       savings: Math.max(Math.abs(currentTimeFrameData.savings), 2000),
-  //     };
-  //     console.log(
-  //       "[GaugeEffect] Updating from local data:",
-  //       currentTimeFrameData,
-  //     );
-  //     setGaugeData([
-  //       {
-  //         name: "Income",
-  //         value: currentTimeFrameData.income,
-  //         max: maxValues.income,
-  //       },
-  //       {
-  //         name: "Spent",
-  //         value: currentTimeFrameData.expenses,
-  //         max: maxValues.expenses,
-  //       },
-  //       {
-  //         name: "Savings",
-  //         value: currentTimeFrameData.savings,
-  //         max: maxValues.savings,
-  //       },
-  //     ]);
-  //   }
-  // }, [currentTimeFrameData, timeFrame, overviewMeta.monthlyIncome]);
+  useEffect(() => {
+    if (timeFrame !== "monthly" || !overviewMeta.monthlyIncome) {
+      const maxValues = {
+        income: Math.max(currentTimeFrameData.income, 5000),
+        expenses: Math.max(currentTimeFrameData.expenses, 3000),
+        savings: Math.max(Math.abs(currentTimeFrameData.savings), 2000),
+      };
+      console.log(
+        "[GaugeEffect] Updating from local data:",
+        currentTimeFrameData,
+      );
+      setGaugeData([
+        {
+          name: "Income",
+          value: currentTimeFrameData.income,
+          max: maxValues.income,
+        },
+        {
+          name: "Spent",
+          value: currentTimeFrameData.expenses,
+          max: maxValues.expenses,
+        },
+        {
+          name: "Savings",
+          value: currentTimeFrameData.savings,
+          max: maxValues.savings,
+        },
+      ]);
+    }
+  }, [currentTimeFrameData, timeFrame, overviewMeta.monthlyIncome]);
 
   const displayIncome =
     timeFrame === "monthly" && typeof overviewMeta.monthlyIncome === "number"
@@ -341,11 +341,11 @@ const Dashboard = () => {
             savings: Math.max(Math.abs(savings), 2000),
           };
 
-          // setGaugeData([
-          //   { name: "Income", value: monthlyIncome, max: maxValues.income },
-          //   { name: "Spent", value: monthlyExpense, max: maxValues.expenses },
-          //   { name: "Savings", value: savings, max: maxValues.savings },
-          // ]);
+          setGaugeData([
+            { name: "Income", value: monthlyIncome, max: maxValues.income },
+            { name: "Spent", value: monthlyExpense, max: maxValues.expenses },
+            { name: "Savings", value: savings, max: maxValues.savings },
+          ]);
         }
       } else {
         console.warn("Dashboard endpoint returned success:false", res?.data);
@@ -522,13 +522,13 @@ const Dashboard = () => {
       </div>
 
       {/* Gauges */}
-      {/* {console.log("[Dashboard] gaugeData:", gaugeData)} */}
+      {console.log("[Dashboard] gaugeData:", gaugeData)}
       {console.log("[Dashboard] currentTimeFrameData:", currentTimeFrameData)}
       {console.log(
         "[Dashboard] outletTransactions count: ",
         outletTransactions?.length,
       )}
-      {/* <div className={dashboardStyles.gaugeGrid}>
+      <div className={dashboardStyles.gaugeGrid}>
         {gaugeData.map((gauge) => (
           <GaugeCard
             key={gauge.name}
@@ -537,10 +537,10 @@ const Dashboard = () => {
             timeFrameLabel={timeFrameRange.label}
           />
         ))}
-      </div> */}
+      </div>
 
       {/* Expense distribution pie - Hidden on mobile */}
-      {/* <div className={dashboardStyles.pieChartContainer}>
+      <div className={dashboardStyles.pieChartContainer}>
         <div className={dashboardStyles.pieChartHeader}>
           <h3 className={dashboardStyles.pieChartTitle}>
             <PieChartIcon className="w-6 h-6 text-teal-500" />
@@ -600,7 +600,6 @@ const Dashboard = () => {
           </ResponsiveContainer>
         </div>
       </div>
-      */}
 
       <div className={dashboardStyles.listsGrid}>
         {/* Income Column */}
