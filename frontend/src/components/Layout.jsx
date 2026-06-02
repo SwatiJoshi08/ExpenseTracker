@@ -1,4 +1,4 @@
-import React, { Activity, useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { styles } from "../assets/dummyStyles.js";
 import Navbar from "./Navbar";
 import Sidebar from "./Sidebar";
@@ -18,6 +18,7 @@ import {
   PieChart,
   PiggyBank,
   RefreshCcw,
+  Activity,
   RefreshCw,
   ShoppingCart,
   TrendingUp,
