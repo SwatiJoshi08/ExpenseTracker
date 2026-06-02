@@ -4,8 +4,7 @@ import img1 from "../assets/logo.png";
 import { ChevronDown, LogOut, User } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
-
-const BASE_URL = "http://localhost:4000/api";
+import { API_URL as BASE_URL } from "../../auth.js";
 
 const Navbar = ({ user: propUser, onLogout }) => {
   const navigate = useNavigate();

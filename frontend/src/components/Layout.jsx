@@ -26,10 +26,10 @@ import {
   Zap,
 } from "lucide-react";
 import axios from "axios";
+import { API_URL as API_BASE } from "../../auth.js";
 import { Outlet } from "react-router-dom";
 import { getAuthHeader } from "../../auth.js";
 
-const API_BASE = "http://localhost:4000/api";
 const CATEGORY_ICONS = {
   Food: <Utensils className="w-4 h-4" />,
   Housing: <Home className="w-4 h-4" />,

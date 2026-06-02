@@ -7,6 +7,7 @@ import {
   useLocation,
   useNavigate,
 } from "react-router-dom";
+import { API_URL } from "../auth";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Login from "./components/Login";
@@ -14,7 +15,6 @@ import Signup from "./components/Signup";
 import Income from "./pages/Income";
 import Expense from "./pages/Expense";
 import Profile from "./pages/Profile";
-const API_URL = "http://localhost:4000";
 
 //to get transaction from localstorage
 const getTransactionsFromStorage = () => {

@@ -4,8 +4,8 @@ import { Mail, User, Lock, EyeOff, Eye } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import { getAuthHeader } from "../../auth";
-
-const Login = ({ onLogin, API_URL = "http://localhost:4000" }) => {
+import { API_URL } from "../../auth";
+const Login = ({ onLogin }) => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);

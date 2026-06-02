@@ -1,4 +1,4 @@
-export const API_URL = "http://localhost:4000/api";
+export const API_URL = "https://expensetracker-qvfw.onrender.com/api";
 export const getAuthHeader = () => {
   const token =
     localStorage.getItem("token") || sessionStorage.getItem("token");
