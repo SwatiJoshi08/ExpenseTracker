@@ -17,7 +17,7 @@ const Login = ({ onLogin }) => {
   //to fetch profile
   const fetchProfile = async (token) => {
     if (!token) return null;
-    const res = await axios.get(`${API_URL}/api/user/me`, {
+    const res = await axios.get(`${API_URL}/user/me`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     return res.data;
@@ -41,7 +41,7 @@ const Login = ({ onLogin }) => {
     try {
       const headers = getAuthHeader();
       const res = await axios.post(
-        `${API_URL}/api/user/login`,
+        `${API_URL}/user/login`,
         { email, password },
         { headers },
       );
